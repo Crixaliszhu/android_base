@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AndroidManifest.xml
+
+  混合项目注意事项：
+  1. INTERNET 权限：开发模式连接 Metro（release 模式加载本地 bundle 不需要）
+  2. usesCleartextTraffic：开发模式连接本地 Metro（release 可关闭）
+  3. RN 容器 Activity 的 configChanges：防止配置变化重建 Activity
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:name=".MainApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="HybridDemo"
+        android:theme="@style/Theme.MaterialComponents.Light.NoActionBar"
+        android:usesCleartextTraffic="true">
+
+        <!-- 原生首页（Launcher） -->
+        <activity
+            android:name=".ui.NativeHomeActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 原生详情页 -->
+        <activity android:name=".ui.NativeDetailActivity" />
+
+        <!-- 原生输入页（带返回值） -->
+        <activity android:name=".ui.NativeInputActivity" />
+
+        <!-- RN 容器 Activity -->
+        <activity
+            android:name=".rn.RNContainerActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:windowSoftInputMode="adjustResize" />
+
+    </application>
+</manifest>
