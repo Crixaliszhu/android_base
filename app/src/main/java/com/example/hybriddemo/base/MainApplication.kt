@@ -1,6 +1,7 @@
-package com.example.hybriddemo
+package com.example.hybriddemo.base
 
 import android.app.Application
+import com.example.hybriddemo.HotUpdateManager
 import com.example.hybriddemo.rn.HybridBridgePackage
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactNativeHost
@@ -26,6 +27,7 @@ class MainApplication : Application(), ReactApplication {
 
     private val mReactNativeHost: ReactNativeHost = object : ReactNativeHost(this) {
 
+        // 是否支持调试
         override fun getUseDeveloperSupport(): Boolean = true
 
         override fun getPackages(): MutableList<ReactPackage> {
