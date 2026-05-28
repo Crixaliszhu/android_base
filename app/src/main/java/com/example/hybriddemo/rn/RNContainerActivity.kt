@@ -52,11 +52,11 @@ class RNContainerActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
         }
 
         /**
-         * 启动 RN 容器并等待返回结果
+         * 启动 RN 容器并等待返回结果（接受 viewName + Bundle 参数）
          */
-        fun startForResult(activity: Activity, componentName: String, props: Bundle? = null, requestCode: Int) {
+        fun startForResult(activity: Activity, viewName: String, props: Bundle?, requestCode: Int) {
             val intent = Intent(activity, RNContainerActivity::class.java).apply {
-                putExtra(EXTRA_COMPONENT_NAME, componentName)
+                putExtra(EXTRA_COMPONENT_NAME, viewName)
                 putExtra(EXTRA_INSTANCE_ID, "rn_${++instanceCounter}_${System.currentTimeMillis()}")
                 props?.let { putExtra(EXTRA_INITIAL_PROPS, it) }
             }
@@ -118,6 +118,19 @@ class RNContainerActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
     override fun onBackPressed() {
         reactInstanceManager?.onBackPressed()
             ?: super.onBackPressed()
+    }
+
+    /**
+     * 转发 onActivityResult 给 ReactInstanceManager
+     *
+     * 这是 RN→RN 页面返回数据的关键：
+     * 当 Activity B finish 后，Activity A 的 onActivityResult 被触发，
+     * 必须转发给 ReactInstanceManager，它才会通知注册的 ActivityEventListener，
+     * 从而让 HybridBridgeModule 中的监听器收到回调并 resolve Promise。
+     */
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        reactInstanceManager?.onActivityResult(this, requestCode, resultCode, data)
     }
 
     override fun invokeDefaultOnBackPressed() {

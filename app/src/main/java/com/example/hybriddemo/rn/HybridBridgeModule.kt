@@ -25,6 +25,58 @@ class HybridBridgeModule(private val reactContext: ReactApplicationContext) :
     companion object {
         const val MODULE_NAME = "HybridBridge"
         const val SHARED_PREFS_NAME = "hybrid_shared_data"
+        private const val NATIVE_PAGE_REQUEST_CODE = 1001
+        private const val RN_PAGE_REQUEST_CODE = 2001
+    }
+
+    /**
+     * 缓存等待返回值的 Promise（栈结构，支持多层跳转）
+     * 统一管理 RN→原生 和 RN→RN 的 forResult 回调
+     */
+    private val pendingPromises = java.util.Stack<PendingResult>()
+
+    private data class PendingResult(val requestCode: Int, val promise: Promise)
+
+    init {
+        // 统一的 ActivityResult 监听器，根据 requestCode 分发处理
+        reactContext.addActivityEventListener(object : BaseActivityEventListener() {
+            override fun onActivityResult(
+                activity: Activity?,
+                requestCode: Int,
+                resultCode: Int,
+                data: Intent?
+            ) {
+                if (pendingPromises.isEmpty()) return
+                // 找到匹配 requestCode 的 Promise
+                val pending = pendingPromises.firstOrNull { it.requestCode == requestCode }
+                    ?: return
+                pendingPromises.remove(pending)
+
+                when (requestCode) {
+                    RN_PAGE_REQUEST_CODE -> {
+                        // RN→RN 页面返回数据
+                        if (resultCode == Activity.RESULT_OK && data != null) {
+                            val json = data.getStringExtra("result_data") ?: ""
+                            pending.promise.resolve(json)
+                        } else {
+                            pending.promise.reject("CANCELLED", "页面取消")
+                        }
+                    }
+                    NATIVE_PAGE_REQUEST_CODE -> {
+                        // RN→原生页面返回数据
+                        if (resultCode == Activity.RESULT_OK && data != null) {
+                            val result = WritableNativeMap().apply {
+                                putString("input", data.getStringExtra("result_input") ?: "")
+                                putInt("code", resultCode)
+                            }
+                            pending.promise.resolve(result)
+                        } else {
+                            pending.promise.reject("CANCELLED", "用户取消操作")
+                        }
+                    }
+                }
+            }
+        })
     }
 
     override fun getName(): String = MODULE_NAME
@@ -68,23 +120,9 @@ class HybridBridgeModule(private val reactContext: ReactApplicationContext) :
             }
         }
         intent.putExtras(toBundle(params))
-
-        val listener = object : BaseActivityEventListener() {
-            override fun onActivityResult(act: Activity?, requestCode: Int, resultCode: Int, data: Intent?) {
-                reactContext.removeActivityEventListener(this)
-                if (resultCode == Activity.RESULT_OK && data != null) {
-                    val result = WritableNativeMap().apply {
-                        putString("input", data.getStringExtra("result_input") ?: "")
-                        putInt("code", resultCode)
-                    }
-                    promise.resolve(result)
-                } else {
-                    promise.reject("CANCELLED", "用户取消操作")
-                }
-            }
-        }
-        reactContext.addActivityEventListener(listener)
-        activity.startActivityForResult(intent, 1001)
+        // 将 Promise 压栈，统一由 init 中的 listener 处理
+        pendingPromises.push(PendingResult(NATIVE_PAGE_REQUEST_CODE, promise))
+        activity.startActivityForResult(intent, NATIVE_PAGE_REQUEST_CODE)
     }
 
     /**
@@ -98,6 +136,26 @@ class HybridBridgeModule(private val reactContext: ReactApplicationContext) :
         val activity = currentActivity ?: return
         val bundle = toBundle(params)
         RNContainerActivity.start(activity, viewName, bundle)
+    }
+
+    /**
+     * 打开新的 RN 页面并等待返回结果
+     *
+     * 参考 yp_rn_app 中的 YPRouterModule.openNewActivityResult()
+     * 使用 startActivityForResult 打开，RN 侧通过 await 获取返回值。
+     *
+     * RN 侧调用：
+     * const result = await HybridBridge.openRNPageForResult('SecondPage', { title: 'xxx' })
+     */
+    @ReactMethod
+    fun openRNPageForResult(viewName: String, params: ReadableMap, promise: Promise) {
+        val activity = currentActivity ?: run {
+            promise.reject("NO_ACTIVITY", "No activity available")
+            return
+        }
+        // 将 Promise 压栈，统一由 init 中的 listener 处理
+        pendingPromises.push(PendingResult(RN_PAGE_REQUEST_CODE, promise))
+        RNContainerActivity.startForResult(activity, viewName, toBundle(params), RN_PAGE_REQUEST_CODE)
     }
 
     /** 关闭当前页面 */
