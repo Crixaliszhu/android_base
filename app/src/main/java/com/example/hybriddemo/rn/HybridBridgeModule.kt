@@ -188,6 +188,20 @@ class HybridBridgeModule(private val reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * 测试：RN 触发原生发送事件回给 RN
+     * 用于验证事件通道是否正常工作
+     */
+    @ReactMethod
+    fun triggerTestEvent(eventName: String) {
+        val params = WritableNativeMap().apply {
+            putBoolean("isLoggedIn", true)
+            putString("userId", "TEST_USER_123")
+            putString("source", "triggerTestEvent")
+        }
+        sendEventToRN(eventName, params)
+    }
+
     // ==================== 数据持久化 ====================
 
     /**
