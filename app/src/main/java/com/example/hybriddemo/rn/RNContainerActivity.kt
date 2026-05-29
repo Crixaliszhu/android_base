@@ -12,26 +12,21 @@ import com.facebook.react.ReactRootView
 import com.facebook.react.modules.core.DefaultHardwareBackBtnHandler
 
 /**
- * RN 容器 Activity
+ * RN 容器 Activity - 单组件模式
  *
- * 每个 RN 页面都运行在一个独立的 RNContainerActivity 中。
- * 这是参考 yp_rn_app 的 "一页一 Activity" 设计。
+ * 所有 RN 页面都通过同一个组件名 "HybridDemoRN" 加载，
+ * 通过 initialProperties 中的 viewName 参数告诉 RN 侧渲染哪个页面。
  *
- * 核心机制：
- * 1. 通过 Intent 传入 componentName（对应 AppRegistry 注册的组件名）
- * 2. 通过 Bundle 传入 initialProperties（RN 组件的 props）
- * 3. 创建 ReactRootView 并启动 RN 渲染
- *
- * 生命周期管理：
- * - Activity 的生命周期事件会传递给 ReactInstanceManager
- * - 确保 RN 侧能正确感知页面的显示/隐藏/销毁
+ * 原生侧只需要知道 viewName（页面标识），不需要知道 RN 组件注册细节。
  */
 class RNContainerActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
 
     companion object {
-        private const val EXTRA_COMPONENT_NAME = "component_name"
         private const val EXTRA_INITIAL_PROPS = "initial_props"
         private const val EXTRA_INSTANCE_ID = "instance_id"
+
+        /** 单组件模式：所有 RN 页面共用同一个组件名 */
+        private const val RN_COMPONENT_NAME = "HybridDemoRN"
 
         private var instanceCounter = 0L
 
@@ -39,26 +34,30 @@ class RNContainerActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
          * 启动 RN 容器
          *
          * @param context 上下文
-         * @param componentName RN 组件名（AppRegistry.registerComponent 注册的名称）
-         * @param props 传递给 RN 组件的参数
+         * @param viewName RN 页面标识（传入 props.viewName，由 RN 侧路由）
+         * @param props 传递给 RN 页面的业务参数
          */
-        fun start(context: Context, componentName: String, props: Bundle? = null) {
+        fun start(context: Context, viewName: String, props: Bundle? = null) {
             val intent = Intent(context, RNContainerActivity::class.java).apply {
-                putExtra(EXTRA_COMPONENT_NAME, componentName)
                 putExtra(EXTRA_INSTANCE_ID, "rn_${++instanceCounter}_${System.currentTimeMillis()}")
-                props?.let { putExtra(EXTRA_INITIAL_PROPS, it) }
+                val mergedProps = (props ?: Bundle()).apply {
+                    putString("viewName", viewName)
+                }
+                putExtra(EXTRA_INITIAL_PROPS, mergedProps)
             }
             context.startActivity(intent)
         }
 
         /**
-         * 启动 RN 容器并等待返回结果（接受 viewName + Bundle 参数）
+         * 启动 RN 容器并等待返回结果
          */
-        fun startForResult(activity: Activity, viewName: String, props: Bundle?, requestCode: Int) {
+        fun startForResult(activity: Activity, viewName: String, props: Bundle? = null, requestCode: Int) {
             val intent = Intent(activity, RNContainerActivity::class.java).apply {
-                putExtra(EXTRA_COMPONENT_NAME, viewName)
                 putExtra(EXTRA_INSTANCE_ID, "rn_${++instanceCounter}_${System.currentTimeMillis()}")
-                props?.let { putExtra(EXTRA_INITIAL_PROPS, it) }
+                val mergedProps = (props ?: Bundle()).apply {
+                    putString("viewName", viewName)
+                }
+                putExtra(EXTRA_INITIAL_PROPS, mergedProps)
             }
             activity.startActivityForResult(intent, requestCode)
         }
@@ -67,32 +66,26 @@ class RNContainerActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
     private var reactRootView: ReactRootView? = null
     private var reactInstanceManager: ReactInstanceManager? = null
 
-    private val componentName: String
-        get() = intent.getStringExtra(EXTRA_COMPONENT_NAME) ?: "MainApp"
-
     private val instanceId: String
         get() = intent.getStringExtra(EXTRA_INSTANCE_ID) ?: "unknown"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 获取 ReactInstanceManager（全局单例）
         reactInstanceManager = (application as ReactApplication)
             .reactNativeHost
             .reactInstanceManager
 
-        // 创建 ReactRootView
         reactRootView = ReactRootView(this)
 
-        // 构建 initialProperties
+        // 构建 initialProperties（包含 viewName + instanceId + 业务参数）
         val launchOptions = intent.getBundleExtra(EXTRA_INITIAL_PROPS) ?: Bundle()
         launchOptions.putString("instanceId", instanceId)
-        launchOptions.putString("viewName", componentName)
 
-        // 启动 RN 渲染
+        // 始终使用同一个组件名，RN 侧根据 viewName 路由
         reactRootView?.startReactApplication(
             reactInstanceManager,
-            componentName,
+            RN_COMPONENT_NAME,
             launchOptions
         )
 
@@ -120,25 +113,20 @@ class RNContainerActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
             ?: super.onBackPressed()
     }
 
+    override fun invokeDefaultOnBackPressed() {
+        super.onBackPressed()
+    }
+
     /**
      * 转发 onActivityResult 给 ReactInstanceManager
-     *
-     * 这是 RN→RN 页面返回数据的关键：
-     * 当 Activity B finish 后，Activity A 的 onActivityResult 被触发，
-     * 必须转发给 ReactInstanceManager，它才会通知注册的 ActivityEventListener，
-     * 从而让 HybridBridgeModule 中的监听器收到回调并 resolve Promise。
+     * 确保 HybridBridgeModule 中的 ActivityEventListener 能收到回调
      */
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         reactInstanceManager?.onActivityResult(this, requestCode, resultCode, data)
     }
 
-    override fun invokeDefaultOnBackPressed() {
-        super.onBackPressed()
-    }
-
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        // 开发模式下双击 R 键刷新
         if (keyCode == KeyEvent.KEYCODE_MENU) {
             reactInstanceManager?.showDevOptionsDialog()
             return true

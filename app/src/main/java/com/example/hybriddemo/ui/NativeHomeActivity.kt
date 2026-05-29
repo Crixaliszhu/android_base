@@ -44,7 +44,7 @@ class NativeHomeActivity : AppCompatActivity() {
         layout.addView(createSectionTitle("📱 页面跳转"))
 
         layout.addView(createButton("打开 RN 主应用") {
-            RNContainerActivity.start(this, "MainApp")
+            RNContainerActivity.start(this, "HomePage")
         })
 
         layout.addView(createButton("打开 RN 独立页面（带参数）") {
