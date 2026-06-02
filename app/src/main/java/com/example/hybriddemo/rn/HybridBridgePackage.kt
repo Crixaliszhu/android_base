@@ -1,5 +1,6 @@
 package com.example.hybriddemo.rn
 
+import com.example.hybriddemo.rn.view.CircleProgressViewManager
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
@@ -28,6 +29,8 @@ class HybridBridgePackage : ReactPackage {
     override fun createViewManagers(
         reactContext: ReactApplicationContext
     ): List<ViewManager<*, *>> {
-        return emptyList()
+        return listOf(
+            CircleProgressViewManager()  // 原生圆形进度条 → RN 通过 requireNativeComponent("RNCircleProgress") 使用
+        )
     }
 }
