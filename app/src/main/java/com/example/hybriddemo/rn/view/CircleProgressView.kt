@@ -82,7 +82,8 @@ class CircleProgressView(context: Context) : View(context) {
 
         val centerX = width / 2f
         val centerY = height / 2f
-        val radius = (minOf(width, height) / 2f) - strokeWidth
+        // stroke 居中绘制，只需留出半个线宽即可让外边缘贴着 View 边界
+        val radius = (minOf(width, height) / 2f) - strokeWidth / 2f
 
         // 绘制轨道
         rectF.set(centerX - radius, centerY - radius, centerX + radius, centerY + radius)
