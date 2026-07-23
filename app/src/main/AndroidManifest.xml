@@ -41,5 +41,11 @@
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- XBus 演示 -->
+        <activity android:name=".xbus.demo.XBusDemoActivity" />
+        <activity android:name=".xbus.demo.LoginModuleActivity" />
+        <activity android:name=".xbus.demo.ProductModuleActivity" />
+        <activity android:name=".xbus.demo.EditModuleActivity" />
+
     </application>
 </manifest>

@@ -1,5 +1,6 @@
 package com.example.hybriddemo.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.LinearLayout
@@ -11,6 +12,7 @@ import androidx.core.os.bundleOf
 import com.example.hybriddemo.rn.CallRNModule
 import com.example.hybriddemo.rn.HybridBridgeModule
 import com.example.hybriddemo.rn.RNContainerActivity
+import com.example.hybriddemo.xbus.demo.XBusDemoActivity
 import com.facebook.react.ReactApplication
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.WritableNativeMap
@@ -97,6 +99,16 @@ class NativeHomeActivity : AppCompatActivity() {
         })
 
         // ==================== 数据共享 ====================
+        layout.addView(createSectionTitle("💾 数据共享"))
+
+        // ==================== XBus 事件总线演示 ====================
+        layout.addView(createSectionTitle("🚌 XBus 事件总线"))
+        layout.addView(createDesc("生命周期感知的跨模块事件通信演示"))
+
+        layout.addView(createButton("打开 XBus 跨模块通信 Demo") {
+            startActivity(Intent(this, XBusDemoActivity::class.java))
+        })
+
         layout.addView(createSectionTitle("💾 数据共享"))
         layout.addView(createDesc("原生和 RN 共享同一个 SharedPreferences"))
 
